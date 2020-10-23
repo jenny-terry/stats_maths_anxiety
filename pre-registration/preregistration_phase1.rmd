@@ -590,7 +590,9 @@ The following analytical steps will be taken for each model:
     partition and quantify variance across people and time. The fixed effects
     will estimate the starting point and slope of the average change trajectory,
     thus indicating the number of units change in state anxiety from pre- to
-    post-MCQ test. Then, the interaction model will be fitted (Equations 1.4 or
+    post-MCQ test. 
+    
+7.  Then, the interaction model will be fitted (Equations 1.4 or
     2.4, accordingly). We are only interested in the interaction so all predictors will be
     entered into the model simultaneously.
 
@@ -614,7 +616,7 @@ The following analytical steps will be taken for each model:
         statistics MCQ). This pattern of results will suggest that the two
         constructs are distinct.
 
-7.  Finally, standard diagnostic plots will be generated to examine the validity
+8.  Finally, standard diagnostic plots will be generated to examine the validity
     of the assumptions of linearity, homoscedasticity, and normality at the
     level of the residuals. Additionally, influence diagnostics will be checked
     via the HLMdiag (Loy & Hofmann, 2014) package.

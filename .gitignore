@@ -1,8 +1,10 @@
-# Pre-reg only
-/data
+# Remove this when RMDs et al. are ready to share
 /r_docs
 
-# Working documents
+# Remove this when poster is ready to share
+/poster
+
+# Working documents (i.e. unrefined code that shouldn't see the light of day!)
 /working_files
 
 # Test data
@@ -15,7 +17,7 @@
 /data/clean_data.csv
 
 # Pedagogic files
-/r_docs/charlie_data_prep.Rmd 
+/scripts/charlie_data_prep.Rmd 
 /data/charlie_data.csv
 /docs/charlie_codebook.xlsx
 
