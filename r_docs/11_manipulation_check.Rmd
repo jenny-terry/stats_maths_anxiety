@@ -1,0 +1,75 @@
+---
+title: "Manipulation Check"
+author: "Jenny Terry"
+date: "27/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(magrittr)
+```
+
+** NOT IN PRE-REGISTRATION **
+
+```{r import_data}
+# read in anonymised data file
+statanx_data <- readr::read_csv(here::here("data", "anon_data.csv"))
+
+# check first few rows
+head(statanx_data)
+```
+
+```{r score_mcqs}
+# score mcq responses (1 for a correct answer, otherwise 0)
+statanx_data %<>% dplyr::mutate(
+  mcq_score_s1 = ifelse(q6.3 == "4", 1, 0),
+  mcq_score_s2 = ifelse(q6.4 == "1", 1, 0),
+  mcq_score_s3 = ifelse(q6.5 == "1", 1, 0),
+  mcq_score_s4 = ifelse(q6.6 == "1", 1, 0),
+  mcq_score_s5 = ifelse(q6.7 == "1", 1, 0),
+  mcq_score_m1 = ifelse(q7.3 == "3", 1, 0),
+  mcq_score_m2 = ifelse(q7.4 == "1", 1, 0),
+  mcq_score_m3 = ifelse(q7.5 == "2", 1, 0),
+  mcq_score_m4 = ifelse(q7.6 == "3", 1, 0),
+  mcq_score_m5 = ifelse(q7.7 == "1", 1, 0)
+)
+```
+
+```{r tally_scores}
+# replace NAs with 0 and sum mcq responses to get a mark out of 5
+statanx_data %<>% 
+  dplyr::mutate_at(
+    dplyr::vars(mcq_score_s1, mcq_score_s2, mcq_score_s3, mcq_score_s4, mcq_score_s5, mcq_score_m1, mcq_score_m2, mcq_score_m3, mcq_score_m4, mcq_score_m5), tidyr::replace_na, 0) %>%
+  dplyr::mutate(mcq_score = c(mcq_score_s1 + mcq_score_s2 + mcq_score_s3 + mcq_score_s4 + mcq_score_s5 + mcq_score_m1 + mcq_score_m2 + mcq_score_m3 + mcq_score_m4 + mcq_score_m5))
+```
+
+```{r score_freq}
+statanx_data %>% 
+  dplyr::group_by(mcq) %>%
+  dplyr::count(mcq_score)
+```
+
+```{r lm}
+man_check_lm <- lm(mcq_score ~ mcq, statanx_data)
+summary(man_check_lm)
+
+man_check_rob <- robust::lmRob(mcq_score ~ mcq, statanx_data)
+summary(man_check_lm)
+```
+
+```{r plot}
+library(ggplot2)
+man_check_plot <- ggplot(data = statanx_data, aes(x = mcq, y = mcq_score)) +
+  stat_summary(fun.data = "mean_cl_normal", geom = "errorbar", width = .4) +
+  stat_summary(fun = "mean", geom = "point") +
+  coord_cartesian(ylim = c(0, 5)) +
+  scale_y_continuous(breaks = seq(0, 5, 0.5)) +
+  labs(x = "MCQ Type", y = "MCQ Score (out of 5)") +
+  theme_bw()
+man_check_plot
+```
+
+
+

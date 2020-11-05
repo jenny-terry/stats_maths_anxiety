@@ -1,0 +1,128 @@
+---
+title: "Phase 1B LPA - STARS, STARS_M, RMARS, RMARS_S"
+author: "Jenny Terry"
+date: "10/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
+library(magrittr)
+```
+
+First, read in the cleaned, anonymised data if not already loaded.
+
+```{r import_data}
+# read in anonymised data file
+statanx_data <- readr::read_csv(here::here("data", "anon_data.csv"))
+
+# check first few rows
+head(statanx_data)
+```
+
+```{r composite_scores}
+# create composite scores
+
+# stars mean
+statanx_data <- statanx_data %>% dplyr::mutate(stars = rowMeans(dplyr::select(., dplyr::starts_with("q4.1")), na.rm = TRUE))
+
+# stars_m mean
+statanx_data <- statanx_data %>% dplyr::mutate(stars_m = rowMeans(dplyr::select(., dplyr::starts_with("q4.2")), na.rm = TRUE))
+
+# rmars mean
+statanx_data <- statanx_data %>% dplyr::mutate(rmars = rowMeans(dplyr::select(., dplyr::starts_with("q4.3")), na.rm = TRUE))
+
+# rmars_s mean
+statanx_data <- statanx_data %>% dplyr::mutate(rmars_s = rowMeans(dplyr::select(., dplyr::starts_with("q4.4")), na.rm = TRUE))
+```
+
+```{r estimate_profiles}
+# fit models
+ph1b_lpa_mod <- statanx_data %>%
+    dplyr::select(stars, stars_m, rmars, rmars_s) %>% 
+    scale() %>% # centre variables
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(1:6) %>%
+    tidyLPA::get_fit()
+ph1b_lpa_mod
+```
+
+For model interpretation see: https://data-edu.github.io/tidyLPA/articles/Introduction_to_tidyLPA.html#getting-fit-statistics
+
+```{r mod1}
+# re-run model with retained no. of profiles
+# equal variances and covariances fixed to zero (model 1, default)
+ph1b_mod1 <- statanx_data %>%
+    dplyr::select(stars, stars_m, rmars, rmars_s) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6)
+ph1b_mod1
+```
+
+```{r mod2}
+# re-run model with retained no. of profiles
+# varying variances and covariances fixed to zero (model 2)
+ph1b_mod2 <- statanx_data %>%
+    dplyr::select(stars, stars_m, rmars, rmars_s) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6, variances = "varying", covariances = "zero")
+ph1b_mod2
+```
+
+```{r mod3}
+# re-run model with retained no. of profiles
+# equal variances and equal covariances (model 3)
+ph1b_mod3 <- statanx_data %>%
+    dplyr::select(stars, stars_m, rmars, rmars_s) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6, variances = "equal", covariances = "equal")
+ph1b_mod3
+```
+
+NOTE: models 4 & 5 are only available in MPlus.
+
+```{r mod6}
+# re-run model with retained no. of profiles
+# varying variances and varying covariances (model 6)
+ph1b_mod6 <- statanx_data %>%
+    dplyr::select(stars, stars_m, rmars, rmars_s) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6, variances = "varying", covariances = "varying")
+ph1b_mod6
+```
+
+```{r plot}
+library(ggplot2)
+# plot profiles
+ph1b_lpa_plot <- tidyLPA::plot_profiles(ph1b_mod1, ci = NULL) +
+    labs(y = "Value (centred)", title = "") +
+    theme_bw()
+ph1b_lpa_plot
+```
+
+```{r get_estimates}
+tidyLPA::get_estimates(ph1b_mod1)
+```
+
+```{r extract_profiles}
+# create object containing profile no. for each case
+library(tidyLPA) # for some reason using the namespace before the get_data function doesn't work - package must be loaded in advance
+profile <- get_data(ph1b_mod1)
+get_data(ph1b_mod1)
+```
+
+```{r append_profile}
+# add class variable to main dataset
+statanx_data$ph1b_profile <- profile$Class
+```
+
+```{r profile_freq}
+dplyr::count(statanx_data, vars = ph1b_profile)
+```
+
+

@@ -1,0 +1,191 @@
+---
+title: "Data Cleansing"
+author: "Jenny Terry"
+date: "10/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(magrittr)
+```
+
+The Qualtrics data was stored in two files which need to be read in and combined.
+
+```{r read_in_data}
+# read in seta data file
+seta_data <- readxl::read_excel(here::here("data", "seta_data.xlsx"))
+
+# read in settb data file
+setb_data <- readxl::read_excel(here::here("data", "setb_data.xlsx"))
+```
+
+The first row of Qualtrics data contains unnecessary subheadings that need to be removed.
+
+```{r remove_row1}
+# remove first rows
+seta_data <- dplyr::slice(seta_data, -1)
+setb_data <- dplyr::slice(setb_data, -1)
+```
+
+Remove Q9 in data set a (used for a pedagogical exercise).
+
+```{r}
+seta_data %<>% dplyr::select(-Q9.1_1:-Q9.1_28)
+```
+
+The two data sets then need to be joined.
+
+```{r join_tibbles}
+# join the two tibbles
+statanx_data <- dplyr::bind_rows(seta_data, setb_data)
+```
+
+First, unnecessary columns (e.g. Qualtrics metadata) are removed.
+
+```{r deselect_cols_1}
+# remove demographic data for anonymity and other unnecessary columns
+statanx_data %<>% 
+  dplyr::select(-EndDate, -Finished, -Status, -RecordedDate, -ResponseId, -DistributionChannel, -UserLanguage, -`Create New Field or Choose From Dropdown...`, -id)
+```
+
+Next, tidy up column names by making them lower case and removing any spaces in the names.
+
+```{r tidy_names}
+# convert variable names to lower case
+names(statanx_data) <- tolower(names(statanx_data))
+
+# remove spaces in variable names
+names(statanx_data) <- stringr::str_replace_all(names(statanx_data), " ", "_")
+```
+
+Next, cases will be removed where no consent was given (none are anticipated so this is purely precautionary).
+
+```{r remove_no_consent} 
+# remove cases where consent was not given
+statanx_data %<>% dplyr::filter(q1.2 == "1")
+```
+
+Next, cases will be removed where where consent was given but no responses recorded. In the Qualtrics data, progress below 10% indicated no responses at all.
+
+```{r remove_no_response}
+# convert Progress variable to numeric format
+statanx_data$progress <- as.numeric(statanx_data$progress)
+
+# retain only cases where more than 10% Progress was recorded
+statanx_data %<>% dplyr::filter(progress > 10)
+```
+
+Next, we identify and remove duplicates.
+
+Cases will be deemed duplicates where there are two entries with the same self-generated id code (q2.1).
+
+Where duplicates are identified, the case with the greatest progress will be retained, or, if both cases contain the same amount of data, the case with the earliest start date (i.e. the participant's first attempt) will be retained.
+
+Cases where the id code is missing (indicated by NA) will not be treated as duplicates and will all be retained.
+
+```{r identify_dups}
+# identify duplicate cases by self-generated id code
+dups <- statanx_data[duplicated(statanx_data$q2.1)|duplicated(statanx_data$q2.1, fromLast = TRUE),]
+
+# sort by id code to ease visual inspection of cases
+dups %>% dplyr::arrange(q2.1)
+```
+
+To remove a duplicate, a unique response will have to be used to identify the case. We will use StartDate for this purpose.
+
+```{r remove_dups}
+# remove duplicate(s)
+statanx_data %<>% dplyr::filter(startdate != "43899.332395833335", startdate != "43908.593530092592", startdate != "43903.2502662037", startdate != "43906.275590277779")
+```
+
+The final step before obtaining the descriptive statistics is to remove 'speeders' (i.e. cases where the participant has responded too quickly to have been plausibly paying attention).
+
+The process of identifying speeders has been broken down into several stages. For a full explanation of the process, please see the pre-registration document. 
+
+We first need to convert the variables to numeric and will also rename the duration_(in_seconds) variable to keep things tidy.
+
+```{r rename_duration}
+# rename `duration_(in_seconds)` variable
+statanx_data %<>%
+  dplyr::rename(duration = `duration_(in_seconds)`)
+```
+
+```{r convert_numeric}
+# convert Duration (in seconds) variable to numeric format
+statanx_data$duration <- as.numeric(statanx_data$duration)
+statanx_data$q6.2_page_submit <- as.numeric(statanx_data$q6.2_page_submit)
+statanx_data$q7.2_page_submit <- as.numeric(statanx_data$q7.2_page_submit)
+```
+
+Now we can calculate a new variable (a) which contains the no. of seconds taken to complete the survey (duration) minus the no. of seconds taken to complete the MCQs.
+
+```{r a}
+# duration - mcq
+statanx_data %<>% 
+  dplyr::mutate(a = ifelse(is.na(q6.2_page_submit), 
+                           duration - q7.2_page_submit, 
+                           duration - q6.2_page_submit))   
+```
+
+Now we can work out the rate at which participants completed 1% of their total progress (not 1% of the total survey) and store that in a new variable (b).
+
+```{r b}
+# duration (less mcq time) / progress
+statanx_data %<>% dplyr::mutate(b = a/progress)
+```
+
+We can now work out the difference between the expected plausible rate (4.85) and the actual rate and store that in a new variable (c).
+
+```{r c}
+# plausible rate - actual rate
+statanx_data %<>% dplyr::mutate(c = b - 4.85)
+```
+
+If the difference (c) is greater than 0, the participant will have completed the survey faster than has been deemed plausible and will be removed. As such, cases where c <= 0 will be retained.
+
+```{r remove_speeders}
+# retain cases where c is greater or equal to zero 
+statanx_data %<>% dplyr::filter(c >= 0)
+```
+
+Qualtrics did not create a variable that indicates which of the conditions (in this case, mcq test: stats, maths) participants were allocated to so we need to create such a variable.
+
+Participants that took the maths mcq will have NA values for the variable which records the time they submitted the answers to the stats mcq questions ('Page Submit') and vice-versa. The 'Page Submit' variables will, therefore, be used to identify which mcq test participants took and stored as a new categorical variable.
+
+Participants that did not progress through to the mcq stage of the survey will have NAs for both the maths and stats versions of the 'Page Submit' variable. These will be stored as NA in the new mcq variable.
+
+```{r create_mcq_var}
+statanx_data %<>% 
+  dplyr::mutate(mcq = dplyr::case_when(
+    is.na(q6.2_page_submit) & is.na(q7.2_page_submit) ~ "NA",
+    is.na(q6.2_page_submit) ~ "maths", 
+    is.na(q7.2_page_submit) ~ "stats")
+    )
+```
+
+Change the id codes to enhance anonymity and ensure consistency of id data.
+
+```{r rename_id}
+# rename id variable
+statanx_data %<>% dplyr::rename(id = q2.1)
+```
+
+```{r change_id}
+# change id code
+statanx_data$id <- stringi::stri_rand_strings(n = 465, length = 5)
+```
+
+Finally, we can remove the variables only needed in the data preparation stage.
+
+```{r deselect_cols_2}
+# remove unnecessary variables
+statanx_data %<>% dplyr::select(-startdate, -progress, - duration, -q1.2, -q6.2_first_click:-q6.2_click_count, -q7.2_first_click:-q7.2_click_count, -a, -b, -c, )
+```
+
+The cleaned data file can now be created.
+
+```{r write_file}
+readr::write_csv(statanx_data, here::here("data", "clean_data.csv"), col_names = T)
+```

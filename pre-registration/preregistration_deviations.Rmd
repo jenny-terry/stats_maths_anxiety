@@ -1,0 +1,77 @@
+---
+title: "Pre-registration Deviations"
+author: "Jenny Terry"
+date: "05/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+NOTE: This is a log of all deviations from the pre-reg. More detail will be provided in due course.
+
+### Data Preparation
+
+01_data_prep.Rmd
+
+No deviations to report.
+
+### Demographics
+
+02_demographics.Rmd
+
+N/A (not pre-registered)
+
+### Descriptives
+
+03_descriptives.Rmd
+
+N/A (not pre-registered)
+
+### CFA (STARS)
+
+04_cfa_stars.Rmd
+
+No deviations to report.
+
+### CFA (RMARS)
+
+05_cfa_rmars.Rmd
+
+No deviations to report.
+
+### EFA 1a
+
+06_p1a_efa.Rmd
+
+- bartlett test
+- sensitivity analysis (to be conducted)
+
+### MLM
+
+07_p1a_mlm.Rmd
+
+No deviations to report.
+
+- remove covariances of random effects in interaction models 
+- manipulation check
+
+### LPA 1a
+
+08_p1a_lpa.Rmd
+
+No deviations to report.
+
+### EFA 1b
+
+09_p1a_efa.Rmd
+
+- bartlett test
+- sensitivity analysis (to be conducted)
+
+### LPA 1b
+
+10_p1a_lpa.Rmd
+
+No deviations to report.

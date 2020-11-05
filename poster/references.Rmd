@@ -1,0 +1,19 @@
+---
+title: "Poster References"
+author: "Jenny Terry"
+date: "05/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Kelley, T. L. (1927). *Interpretation of educational measurements.* World Book Co., Oxford. Retrieved from https://search.proquest.com/docview/614932608
+
+Paechter, M., Macher, D., Martskvishvili, K., Wimmer, S., & Papousek, I. (2017).
+Mathematics Anxiety and Statistics Anxiety. Shared but Also Unshared Components
+and Antagonistic Contributions to Performance in Statistics. *Frontiers in
+Psychology*, *8*. https://doi.org/10.3389/fpsyg.2017.01196
+
+(For a full bibliography, see pre-registration.)

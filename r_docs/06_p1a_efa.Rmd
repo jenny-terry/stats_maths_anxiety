@@ -1,0 +1,253 @@
+---
+title: "Phase 1A EFA - STARS & RMARS"
+author: "Jenny Terry"
+date: "10/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(magrittr)
+
+options(scipen = 999)
+
+n = parallel::detectCores()
+options(mc.cores = n)
+```
+
+First, read in the cleaned, anonymised data.
+
+```{r read_in_data}
+# read in anonymised data file
+statanx_data <- readr::read_csv(here::here("data", "anon_data.csv"))
+
+# check first few rows
+head(statanx_data)
+```
+
+The item names need to be converted to meaningful names for easier interpretation.
+
+(I know this code is awful but I've already wasted too many hours trying to improve it so this will have to do for now!)
+
+```{r rename_items}
+statanx_data %<>%
+  dplyr::rename(
+    stars_test1 = q4.1_1, 
+    stars_int1 = q4.1_2, 
+    stars_help1 = q4.1_3, 
+    stars_test2 = q4.1_4, 
+    stars_int2 = q4.1_5, 
+    stars_int3 = q4.1_6, 
+    stars_int4 = q4.1_7, 
+    stars_test3 = q4.1_8, 
+    stars_int5 = q4.1_9, 
+    stars_test4 = q4.1_10, 
+    stars_int6 = q4.1_11, 
+    stars_int7 = q4.1_12, 
+    stars_test5 = q4.1_13, 
+    stars_int8 = q4.1_14, 
+    stars_test6 = q4.1_15, 
+    stars_help2 = q4.1_16,
+    stars_int9 = q4.1_17, 
+    stars_int10 = q4.1_18,
+    stars_help3 = q4.1_19,
+    stars_int11 = q4.1_20, 
+    stars_test7 = q4.1_21, 
+    stars_test8 = q4.1_22,
+    stars_help4 = q4.1_23, 
+    rmars_test1 = q4.3_1, 
+    rmars_test2 = q4.3_2, 
+    rmars_test3 = q4.3_3, 
+    rmars_test4 = q4.3_4, 
+    rmars_test5 = q4.3_5, 
+    rmars_test6 = q4.3_6, 
+    rmars_test7 = q4.3_7, 
+    rmars_test8 = q4.3_8, 
+    rmars_test9 = q4.3_9, 
+    rmars_test10 = q4.3_10, 
+    rmars_num1 = q4.3_11, 
+    rmars_num2 = q4.3_12, 
+    rmars_num3 = q4.3_13, 
+    rmars_num4 = q4.3_14, 
+    rmars_num5 = q4.3_15, 
+    rmars_course1 = q4.3_16, 
+    rmars_course2 = q4.3_17, 
+    rmars_course3 = q4.3_18, 
+    rmars_course4 = q4.3_19,
+    rmars_course5 = q4.3_20 
+    )
+```
+
+For EFA, we will use a subset of the data that just contains all the items of the scales required for the analysis (STARS and RMARS for this phase).
+
+```{r select_cols}
+# prepare dataset for factor analysis
+ph1a_fa_data <- dplyr::select(statanx_data, stars_test1:stars_help4, rmars_test1:rmars_course5)
+
+# check dataset
+head(ph1a_fa_data)
+```
+
+```{r descriptives}
+# descriptive statistics
+psych::describe(ph1a_fa_data)
+```
+
+We can obtain correlations using FIML (so that we don't lose cases to pairwise deletion) by first calculating the covariance matrix (which will also be used for factor analysis) and then converting the covariances to correlations.
+
+```{r cov_matrix}
+# covariance matrix using fiml
+ph1a_fa_cov <- psych::corFiml(ph1a_fa_data)
+```
+
+```{r correlations}
+# descriptive correlations 
+ph1a_fa_corr <- cov2cor(ph1a_fa_cov)
+ph1a_fa_corr
+```
+The KMO test will provide an indication of sampling adequacy of each item. Scores > 0.5 are acceptable, the closer to 1 the better.
+
+```{r kmo}
+# KMO test
+psych::KMO(ph1a_fa_data)
+```
+A determinant above 0.00001 will indicate no problem with multicollinearity.
+
+```{r determinant}
+# determinant
+det(ph1a_fa_corr)
+```
+
+```{r bartlett}
+# **NOT IN PRE REG**
+# tests the hypothesis that the correlation matrix is an identity matrix, we want it to be significant but it is dependent on sample size so with an n of 465, all it is telling us is that there isn't a MASSIVE problem
+bartlett <- psych::cortest.bartlett(ph1a_fa_corr, n = 465)
+```
+
+The factors can now be extracted via parallel analysis using the following options:
+
+fa.cov - covariance matrix
+fa = "fa" - show eigenvalues for a principal axis factor analysis
+fm = "pa" - change default method from minimum residual to principle axis factoring
+SMC = T - use squared multiple correlations to estimate communalities
+n.iter = 100 - use 100 iterations
+
+```{r extraction}
+# test for the number of factors using parallel analysis
+psych::fa.parallel(ph1a_fa_cov, n.obs = 465, fa = "fa", fm = "pa", SMC = T, n.iter = 100)
+```
+
+```{r vss}
+psych::vss(ph1a_fa_cov, n.obs = 465, fm = "pa")
+```
+
+Having derived the number of factors to retain, the factor solution will then be rotated using oblique oblimin rotation (default) and the following additional options:
+
+n.obs = no. of cases (needed for covariance matrix)
+nfactors = X - no. of factors (where X is no. of factors retained; set to 2 for the test example only)
+fm = "pa" - change default method from minimum residual to principle axis factoring
+SMC = T - use squared multiple correlations to estimate communalities
+n.iter = 1 - bootstrapped CIs of factor loadings & interfactor correlations (set to 1 for the test data for faster computation, will use 1000 iterations with real data)
+p = .05 - calculate 95% intervals
+
+The factor loadings after rotation will be interpreted and reported.
+
+```{r rotation}
+# rotated factor solution
+ph1a_fa_mod <- psych::fa(ph1a_fa_cov, n.obs = 465, nfactors = 5, fm = "pa", SMC = T, n.iter = 1, p = .05)
+ph1a_fa_mod
+```
+```{r loadings_table}
+
+# code from this Stack Exchange post: https://stackoverflow.com/questions/17371266/extracting-output-from-principal-function-in-psych-package-as-a-data-frame
+
+getS3method("print","loadings")
+printLoadings <- function (x, digits = 3, cutoff = 0.1, sort = FALSE, ...) 
+{
+   Lambda <- unclass(x)
+   p <- nrow(Lambda)
+   factors <- ncol(Lambda)
+   if (sort) {
+      mx <- max.col(abs(Lambda))
+      ind <- cbind(1L:p, mx)
+      mx[abs(Lambda[ind]) < 0.5] <- factors + 1
+      Lambda <- Lambda[order(mx, 1L:p), ]
+   }
+   cat("\nLoadings:\n")
+   fx <- format(round(Lambda, digits))
+   names(fx) <- NULL
+   nc <- nchar(fx[1L], type = "c")
+   fx[abs(Lambda) < cutoff] <- paste(rep(" ", nc), collapse = "")
+   newx <- print(fx, quote = FALSE, ...)
+   vx <- colSums(x^2)
+   varex <- rbind(`SS loadings` = vx)
+   if (is.null(attr(x, "covariance"))) {
+      varex <- rbind(varex, `Proportion Var` = vx/p)
+      if (factors > 1) 
+         varex <- rbind(varex, `Cumulative Var` = cumsum(vx/p))
+   }
+   cat("\n")
+   print(round(varex, digits))
+   invisible(newx)
+}
+
+ph1a_fa_loadings <- printLoadings(ph1a_fa_mod$loadings, digits = 2, cutoff = 0.4, sort = T)
+as.table(ph1a_fa_loadings)
+
+ph1a_fa_loadings %>% 
+  kableExtra::kable(
+    col.names = c("Test\nAnxiety", "Interpretation\nAnxiety", "Fear of Asking\nfor Help", "Numerical\nCalculations", "Course/Studing\nAnxiety"),
+    caption = "*Table 1* Factor Loadings",
+    digits = 2
+    
+  ) %>% 
+  kableExtra::kable_styling()
+```
+
+Check that most residuals are lower than 0.05.
+
+```{r residuals}
+# check residuals
+residuals <- psych::factor.residuals(ph1a_fa_corr, ph1a_fa_mod)
+residuals %>% dplyr::as_tibble(., rownames = "item")
+```
+
+Plot factor solution.
+
+```{r diagram}
+# draw path diagram of factor solution
+psych::fa.diagram(ph1a_fa_mod, cut = 0.4, main = "TITLE", rsize = 2, digits = 2)
+
+ph1a_fa_mod
+
+print(ph1a_fa_mod)
+```
+
+Finally, calculate reliability of retained factors.
+
+```{r reliability_prep}
+# create dataframes containing raw scores for each factor, e.g:
+test_anx <- dplyr::select(ph1a_fa_data, c("rmars_test4", "rmars_test7", "stars_test6", "stars_test3", "rmars_test3", "rmars_test9", "rmars_test6", "rmars_test10", "stars_test4", "rmars_test2", "rmars_test5"))
+
+int_anx <- dplyr::select(ph1a_fa_data, c("stars_int1", "stars_int11", "stars_int3", "stars_int2", "stars_int6", "stars_int4", "stars_int10", "stars_int7", "stars_int8", "stars_int9"))
+
+help_anx <- dplyr::select(ph1a_fa_data, c("stars_help2", "stars_help3", "stars_help1", "stars_help4"))
+
+num_calc_anx <- dplyr::select(ph1a_fa_data, c("rmars_num3", "rmars_num4", "rmars_num5", "rmars_num2", "rmars_num1"))
+
+course_anx <- dplyr::select(ph1a_fa_data, c("rmars_course3", "rmars_test8", "stars_test7", "rmars_test1"))
+```
+
+```{r reliability}
+# calculate the point estimate and confidence interval for omega reliability coefficient
+MBESS::ci.reliability(test_anx, type = "omega", conf.level = 0.95, interval.type = "bca", B = 1000)
+
+MBESS::ci.reliability(int_anx, type = "omega", conf.level = 0.95, interval.type = "bca", B = 1000)
+
+MBESS::ci.reliability(help_anx, type = "omega", conf.level = 0.95, interval.type = "bca", B = 1000)
+
+MBESS::ci.reliability(num_calc_anx, type = "omega", conf.level = 0.95, interval.type = "bca", B = 1000)
+
+MBESS::ci.reliability(course_anx, type = "omega", conf.level = 0.95, interval.type = "bca", B = 1000)
+```

@@ -1,0 +1,139 @@
+---
+title: "Phase 1A LPA - STARS & RMARS"
+author: "Jenny Terry"
+date: "10/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)
+library(magrittr)
+```
+
+First, read in the cleaned, anonymised data.
+
+```{r import_data}
+# read in anonymised data file
+statanx_data <- readr::read_csv(here::here("data", "anon_data.csv"))
+
+# check first few rows
+head(statanx_data)
+```
+
+```{r composite_scores}
+# create composite scores
+
+# stars mean
+statanx_data <- statanx_data %>% dplyr::mutate(stars = rowMeans(dplyr::select(., dplyr::starts_with("q4.1")), na.rm = TRUE))
+
+# rmars mean
+statanx_data <- statanx_data %>% dplyr::mutate(rmars = rowMeans(dplyr::select(., dplyr::starts_with("q4.3")), na.rm = TRUE))
+
+```
+
+```{r estimate_profiles}
+# fit iterative models to estimate optimal no. of profiles
+ph1a_lpa_mod <- statanx_data %>%
+    dplyr::select(stars, rmars) %>% 
+    scale() %>% # centre variables
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(1:6) %>%
+    tidyLPA::get_fit()
+ph1a_lpa_mod
+```
+
+For model interpretation see: https://data-edu.github.io/tidyLPA/articles/Introduction_to_tidyLPA.html#getting-fit-statistics
+
+```{r mod1}
+# re-run model with retained no. of profiles
+# equal variances and covariances fixed to zero (model 1, default)
+ph1a_mod1 <- statanx_data %>%
+    dplyr::select(stars, rmars) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6)
+ph1a_mod1
+```
+
+```{r mod2}
+# re-run model with retained no. of profiles
+# varying variances and covariances fixed to zero (model 2)
+ph1a_mod2 <- statanx_data %>%
+    dplyr::select(stars, rmars) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6, variances = "varying", covariances = "zero")
+ph1a_mod2
+```
+
+```{r mod3}
+# re-run model with retained no. of profiles
+# equal variances and equal covariances (model 3)
+ph1a_mod3 <- statanx_data %>%
+    dplyr::select(stars, rmars) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6, variances = "equal", covariances = "equal")
+ph1a_mod3
+```
+
+NOTE: models 4 & 5 are only available in MPlus.
+
+```{r mod6}
+# re-run model with retained no. of profiles
+# varying variances and varying covariances (model 6)
+ph1a_mod6 <- statanx_data %>%
+    dplyr::select(stars, rmars) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6, variances = "varying", covariances = "varying")
+ph1a_mod6
+```
+
+```{r get_estimates}
+tidyLPA::get_estimates(ph1a_mod1)
+```
+
+Create a profile plot according to best practices, focusing on the visualisation of classification uncertainty by showing:
+
+1. Bars reflecting a confidence interval for the class centroids
+2. Boxes reflecting the standard deviations within each class; a box encompasses +/- 64% of the
+observations in a normal distribution
+3. Raw data, whose transparency is weighted by the posterior class probability, such that each datapoint is most clearly visible for the class it is most likely to be a member of.
+
+```{r extract_profiles}
+# create object containing profile no. for each case
+library(tidyLPA) # for some reason using the namespace before the get_data function doesn't work - package must be loaded in advance
+profile <- get_data(ph1a_mod1)
+get_data(ph1a_mod1)
+```
+
+```{r append_profile}
+# add class variable to main dataset
+statanx_data$ph1a_profile <- profile$Class
+```
+
+```{r profile_freq}
+# no. of participants in each profile
+dplyr::count(statanx_data, vars = ph1a_profile)
+```
+
+```{r poster_plot}
+# rename variables
+statanx_data %<>% dplyr::rename(`Statistics Anxiety` = stars,
+                                `Maths Anxiety` = rmars)
+# re-run model
+ph1a_mod1 <- statanx_data %>%
+    dplyr::select(`Statistics Anxiety`, `Maths Anxiety`) %>%
+    scale() %>%
+    tidyLPA::single_imputation(method = "missForest") %>%
+    tidyLPA::estimate_profiles(6)
+
+# plot retained model profiles
+ph1a_lpa_plot <- tidyLPA::plot_profiles(ph1a_mod1, sd = T, ci = NULL) +
+    ggplot2::labs(y = "Value (centred)", 
+         title = "Values of statistics anxiety and maths anxiety in each retained profile") +
+    ggplot2::theme_bw()
+ph1a_lpa_plot
+```

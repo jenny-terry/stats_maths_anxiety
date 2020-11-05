@@ -1,25 +1,22 @@
 # Remove this when RMDs et al. are ready to share
-/r_docs
+/r_docs/02_demographics.Rmd
+/r_docs/02_demographics.html
+/r_docs/03_descriptives.Rmd
 
-# Remove this when poster is ready to share
-/poster
-
-# Working documents (i.e. unrefined code that shouldn't see the light of day!)
+# Working documents (i.e. code so bad that it shouldn't see the light of day!)
 /working_files
 
-# Test data
-/data/testa_data.xlsx
-/data/testb_data.xlsx
+# Pedagogic files
+/charlie_lea
 
 # Un-anonymised raw data
 /data/seta_data.xlsx
 /data/setb_data.xlsx
 /data/clean_data.csv
 
-# Pedagogic files
-/scripts/charlie_data_prep.Rmd 
-/data/charlie_data.csv
-/docs/charlie_codebook.xlsx
+# Test data
+/data/testa_data.xlsx
+/data/testb_data.xlsx
 
 # History files
 .Rhistory

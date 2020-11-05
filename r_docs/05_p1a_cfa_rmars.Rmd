@@ -1,0 +1,103 @@
+---
+title: "Phase 1a CFA - RMARS"
+author: "Jenny Terry"
+date: "10/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(magrittr)
+options(scipen = 999)
+```
+
+First, read in the cleaned, anonymised data.
+
+```{r read_in_data}
+# read in anonymised data file
+statanx_data <- readr::read_csv(here::here("data", "anon_data.csv"))
+
+# check first few rows
+head(statanx_data)
+```
+
+We will use a subset of the data that just contains all the items of the STARS.
+
+```{r select_cols}
+# prepare dataset for factor analysis
+rmars_data <- statanx_data %>% dplyr::select(., q4.3_1:q4.3_20)
+
+# check dataset
+head(rmars_data)
+```
+
+```{r rename_items}
+
+rmars_data %<>% 
+  dplyr::rename(
+    rmars_test1 = q4.3_1, 
+    rmars_test2 = q4.3_2, 
+    rmars_test3 = q4.3_3, 
+    rmars_test4 = q4.3_4, 
+    rmars_test5 = q4.3_5, 
+    rmars_test6 = q4.3_6, 
+    rmars_test7 = q4.3_7, 
+    rmars_test8 = q4.3_8, 
+    rmars_test9 = q4.3_9, 
+    rmars_test10 = q4.3_10, 
+    rmars_num1 = q4.3_11, 
+    rmars_num2 = q4.3_12, 
+    rmars_num3 = q4.3_13, 
+    rmars_num4 = q4.3_14, 
+    rmars_num5 = q4.3_15, 
+    rmars_course1 = q4.3_16, 
+    rmars_course2 = q4.3_17, 
+    rmars_course3 = q4.3_18, 
+    rmars_course4 = q4.3_19,
+    rmars_course5 = q4.3_20
+    )
+```
+
+
+```{r specification}
+# specify measurement model), e.g.:
+rmars_mod <- 'test =~ rmars_test1 + rmars_test2 + rmars_test3 + rmars_test4 + rmars_test5 + rmars_test6 +                         rmars_test7 + rmars_test8 + rmars_test9 + rmars_test10
+              num =~ rmars_num1 + rmars_num2 + rmars_num3 + rmars_num4 + rmars_num5
+              course =~ rmars_course1 + rmars_course2 + rmars_course3 + rmars_course4 + rmars_course5'
+```
+
+Next, the model will be fitted using the MLR estimator that uses robust (Huber-White) standard errors and a scaled test statistic that is (asymptotically) equal to the Yuan-Bentler test statistic, and FIML to handle missing data.
+
+By default, lavaan constrains each latent factor’s scale to that of its first observed variable but, because this means no coefficient would be obtained for these indicators, the latent factors will instead be standardised (giving them a mean of zero and a variance of one) by calling `std.lv = TRUE`.
+
+```{r fit_model}
+# fit the model 
+rmars_out <- lavaan::cfa(rmars_mod, data = rmars_data, estimator = "MLR", missing = "fiml.x", std.lv = TRUE)
+
+# display model output
+lavaan::summary(rmars_out, standardized = TRUE, fit.measures = TRUE, rsq = TRUE)
+```
+
+Then, obtain the fit measures and other statistics that will be interpreted (some repeat those obtained in the summary above but I like to print them like this as well for ease of reference).
+
+```{r results}
+# print table of fit measures
+lavaan::fitMeasures(rmars_out, c("chisq","df","pvalue", "cfi", "tli", "rmsea", "srmr"))
+
+# print standardised residuals
+lavaan::resid(rmars_out, type = "standardized")
+
+# print modification indices above 4, sorted by size
+lavaan::modindices(rmars_out, sort. = TRUE, minimum.value = 3.86)
+
+# print table of parameter estimates (for ease of reference)
+lavaan::parameterEstimates(rmars_out, standardized = TRUE)
+```
+
+Finally, draw a plot of the model (will need adapting for model with real data).
+
+```{r}
+# plot CFA model 
+semPlot::semPaths(rmars_out, whatLabels = "std")
+```
